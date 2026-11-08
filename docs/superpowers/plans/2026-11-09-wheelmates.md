@@ -1565,17 +1565,21 @@ export function createServer({ auth, game, origins = [], now = Date.now, log = c
     res.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS')
     res.setHeader('access-control-max-age', '600')
   }
+  // The JSON body, at most 10 KB; a larger one is read to the end and refused, so the client gets an answer.
   function body(req) {
     return new Promise((resolve, reject) => {
       let s = ''
+      let tooLarge = false
       req.on('data', (c) => {
+        if (tooLarge) return
         s += c
         if (s.length > 10_000) {
-          reject(new GameError(413, 'too_large'))
-          req.destroy()
+          tooLarge = true
+          s = ''
         }
       })
       req.on('end', () => {
+        if (tooLarge) return reject(new GameError(413, 'too_large'))
         try {
           resolve(s ? JSON.parse(s) : {})
         } catch {
@@ -1585,6 +1589,7 @@ export function createServer({ auth, game, origins = [], now = Date.now, log = c
       req.on('error', reject)
     })
   }
+  const AUTHED = new Set(['GET /me', 'POST /taps', 'POST /upgrade', 'POST /chest/claim', 'POST /daily', 'POST /name'])
   const bearer = (req) => {
     const h = req.headers.authorization || ''
     return h.startsWith('Bearer ') ? h.slice(7) : null
@@ -1619,6 +1624,7 @@ export function createServer({ auth, game, origins = [], now = Date.now, log = c
         auth.logout(bearer(req))
         return send(res, 200, { ok: true })
       }
+      if (!AUTHED.has(route)) return send(res, 404, { error: 'not_found' })
       const token = bearer(req)
       const address = auth.session(token)
       if (!address) return send(res, 401, { error: token ? 'session_expired' : 'unauthorized' })
