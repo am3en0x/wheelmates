@@ -11,6 +11,12 @@ id -u wheelmates >/dev/null 2>&1 || useradd --system --home /opt/wheelmates --sh
 mkdir -p /opt/wheelmates/server /opt/wheelmates/web /var/lib/wheelmates
 chown -R wheelmates:wheelmates /var/lib/wheelmates
 
+# swap for the small plan: npm ci on 1 GB without swap can get killed
+if [ ! -f /swapfile ]; then
+  fallocate -l 1G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
+  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
 # a private Node, pinned
 if [ ! -x /opt/wheelmates/node/bin/node ] || [ "$(/opt/wheelmates/node/bin/node --version)" != "v$node_ver" ]; then
   tmp="$(mktemp -d)"
