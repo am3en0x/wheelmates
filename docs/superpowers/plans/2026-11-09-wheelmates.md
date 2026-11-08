@@ -2610,3 +2610,16 @@ MIT. The fonts in `web/fonts/` keep the SIL Open Font License 1.1.
 
 - [ ] **Step 2: Commit** — `git add -A && git commit -m "Add hosting files and the handoff docs"`.
 - [ ] **Step 3: Show the owner** — publish `web/index.html` with its files as an Artifact only if the API is reachable from it (it will not be while the API is local); otherwise send the screenshots and the local URL. Push once `am3en0x/wheelmates` exists.
+
+---
+
+## Revision after the UI review (2026-11-09)
+
+An outside critique of the first build (tap target 29% of the screen, thin feedback, a bicycle wheel, a loaf of a
+hamster, the live state said three times in negative, a shop of identical cards, a phone layout on desktop) was
+applied in one pass. The files in Task 5 are superseded by the working tree: `tools/art.py` draws hard-pixel art (a
+180x180 cage, a drum wheel on a stand in 12 frames, a 48x36 outlined hamster, a chest), `web/js/cage.js` is a 360x360
+square with 40 px gold floats and a press squash, `web/css/game.css` carries the warm palette, the 56 px seed counter,
+the quiet live header and a two-column desktop (cage left, tabs right), `web/index.html` and `web/js/app.js` show
+"now → next" effects, affordability on the buy button, a sticky balance in the shop, a chest button on the floor and
+About / Sign out as quiet links. Screenshots in `docs/screens/`.
