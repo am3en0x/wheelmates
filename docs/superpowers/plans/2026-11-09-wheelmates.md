@@ -863,17 +863,23 @@ test('chests: lazy, only for blocks found while the player was around, capped at
   let me = w.game.me(A)
   assert.equal(me.chests.length, 1)
   assert.equal(me.chests[0].seeds, 70)
-  // away for two days, a block one hour after the last visit still counts, one two days later does not
+  // a block one hour after the last visit counts, and the chest lives 24 hours after its block
   block(3, w.now() + H)
-  block(4, w.now() + 47 * H)
-  w.tick(48 * H)
+  w.tick(20 * H)
   me = w.game.me(A)
-  assert.deepEqual(me.chests.map((c) => c.block), [2004])
-  // twelve blocks in a row leave ten chests
+  assert.deepEqual(me.chests.map((c) => c.block), [2002, 2003])
+  // a block more than a day after the last visit gives nothing; the old chests have expired by then
+  block(4, w.now() + 30 * H)
+  w.tick(31 * H)
+  me = w.game.me(A)
+  assert.deepEqual(me.chests, [])
+  // thirteen blocks in a row leave the ten newest chests
+  block(5, w.now() + 1)
   for (let i = 10; i < 22; i++) block(i, w.now() + i)
   w.tick(60_000)
   me = w.game.me(A)
   assert.equal(me.chests.length, 10)
+  assert.equal(me.chests[0].block, 2012)
   const before = me.seeds
   me = w.game.claimChest(A, { id: me.chests[0].id })
   assert.equal(me.seeds, before + 70)
