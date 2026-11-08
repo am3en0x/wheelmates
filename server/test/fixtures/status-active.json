@@ -1,0 +1,4 @@
+{
+  "measurement": { "freshness": "online", "coreStatus": "ACTIVE", "rpmMilli": 77005, "speedMmPerSecond": 1127, "distanceMm": 3455808 },
+  "builder": { "status": "available", "anchor": { "blockHeight": "2366", "blockProgress": "143705150", "settledThroughRound": "166" } }
+}

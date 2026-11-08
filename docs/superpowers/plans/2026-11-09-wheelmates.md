@@ -438,6 +438,8 @@ import { openDb } from '../src/db.js'
 import { createPoller } from '../src/poller.js'
 
 const fixture = (n) => JSON.parse(readFileSync(new URL(`./fixtures/${n}`, import.meta.url)))
+// node:sqlite rows have a null prototype; copy them into plain objects before deepEqual
+const plain = (rows) => rows.map((r) => ({ ...r }))
 const active = fixture('status-active.json')
 const idle = { measurement: { freshness: 'online', rpmMilli: 0, speedMmPerSecond: 0, distanceMm: 100000 }, builder: { anchor: { blockHeight: '2366', blockProgress: '1', settledThroughRound: '166' } } }
 
@@ -452,11 +454,11 @@ function harness(answers) {
 test('fillGap writes an off-air row after downtime and a first row on an empty log', () => {
   const { db, poller, tick } = harness({})
   poller.fillGap()
-  assert.deepEqual(db.prepare('SELECT phase, mult FROM phase_log').all(), [{ phase: 'offair', mult: 1 }])
+  assert.deepEqual(plain(db.prepare('SELECT phase, mult FROM phase_log').all()), [{ phase: 'offair', mult: 1 }])
   db.prepare('INSERT INTO phase_log (at, phase, mult) VALUES (?, ?, ?)').run(1_000_000 + 60_000, 'running', 1.5)
   tick(600_000)
   poller.fillGap()
-  const rows = db.prepare('SELECT at, phase, mult FROM phase_log ORDER BY at').all()
+  const rows = plain(db.prepare('SELECT at, phase, mult FROM phase_log ORDER BY at').all())
   assert.deepEqual(rows[rows.length - 1], { at: 1_000_000 + 65_000, phase: 'offair', mult: 1 })
 })
 
@@ -464,6 +466,7 @@ test('status polls move the snapshot and log phase changes once', async () => {
   let answer = idle
   const { db, poller, tick } = harness({ status: () => ({ ok: true, data: answer }) })
   poller.fillGap()
+  tick(1000)
   await poller.pollStatus()
   assert.equal(poller.snapshot().phase, 'still')
   answer = active
@@ -474,10 +477,10 @@ test('status polls move the snapshot and log phase changes once', async () => {
   assert.equal(poller.snapshot().phase, 'running')
   assert.equal(poller.snapshot().base, 2)
   tick(5000); await poller.pollStatus()
-  assert.deepEqual(db.prepare('SELECT phase, mult FROM phase_log ORDER BY at').all(), [
+  assert.deepEqual(plain(db.prepare('SELECT phase, mult FROM phase_log ORDER BY at').all()), [
     { phase: 'offair', mult: 1 }, { phase: 'still', mult: 1 }, { phase: 'running', mult: 1.5 },
   ])
-  assert.equal(poller.snapshot().apiAt, 1_015_000)
+  assert.equal(poller.snapshot().apiAt, 1_016_000)
 })
 
 test('a failed status poll keeps the numbers and goes off air after two minutes', async () => {
@@ -498,7 +501,7 @@ test('a failed status poll keeps the numbers and goes off air after two minutes'
 test('event polls record settlements with blocks, once per event id', async () => {
   const { db, poller } = harness({ events: () => ({ ok: true, data: fixture('events.json') }) })
   await poller.pollEvents(); await poller.pollEvents()
-  assert.deepEqual(db.prepare('SELECT event_id, block, blocks, at FROM blocks').all(), [
+  assert.deepEqual(plain(db.prepare('SELECT event_id, block, blocks, at FROM blocks').all()), [
     { event_id: 'e9', block: 2001, blocks: 2, at: Date.parse('2026-11-07T18:30:36.000Z') },
   ])
 })
@@ -764,6 +767,7 @@ function world(opts = {}) {
   return { db, game, live, tick: (ms) => { t += ms }, now: () => t, setPhase: (phase, base) => { snap = { ...snap, phase, base }; logPhase(phase, base > 1 ? 1.5 : 1) }, tapsAt }
 }
 const err = (fn, code) => { try { fn(); assert.fail('expected ' + code) } catch (e) { assert.ok(e instanceof GameError, String(e)); assert.equal(e.code, code) } }
+const plain = (rows) => rows.map((r) => ({ ...r }))
 
 test('a new player: defaults, referral code, me heartbeat', () => {
   const { game } = world()
@@ -845,7 +849,7 @@ test('passive income follows the phase log and the offline cap, and lands in the
   assert.equal(me.seeds, 140 + 120)
   assert.equal(me.season, '2026-W47')
   assert.equal(me.seasonSeeds, 120)
-  assert.deepEqual(w.db.prepare('SELECT season, seeds FROM season_results WHERE address = ?').all(A), [{ season: '2026-W46', seeds: 140 }])
+  assert.deepEqual(plain(w.db.prepare('SELECT season, seeds FROM season_results WHERE address = ?').all(A)), [{ season: '2026-W46', seeds: 140 }])
 })
 
 test('chests: lazy, only for blocks found while the player was around, capped at 10, claim one or all', () => {
@@ -976,7 +980,7 @@ test('housekeeping removes expired sessions, old chests, old batches and old log
   w.db.prepare('INSERT INTO tap_batches (token, batch_id, response, at) VALUES (?, ?, ?, ?)').run('x', 'y', '{}', t - 2 * 24 * H)
   w.db.prepare('INSERT INTO phase_log (at, phase, mult) VALUES (?, ?, ?)').run(t - 20 * 24 * H, 'still', 1)
   w.game.housekeeping()
-  assert.deepEqual(w.db.prepare('SELECT token FROM sessions').all(), [{ token: 'new' }])
+  assert.deepEqual(plain(w.db.prepare('SELECT token FROM sessions').all()), [{ token: 'new' }])
   assert.equal(w.db.prepare('SELECT COUNT(*) AS n FROM tap_batches').get().n, 0)
   assert.equal(w.db.prepare('SELECT COUNT(*) AS n FROM phase_log').get().n, 1)
 })

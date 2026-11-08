@@ -1,0 +1,8 @@
+{
+  "status": "available",
+  "events": [
+    { "id": "e9", "type": "system.settlement_completed", "occurredAt": "2026-11-07T18:30:36.000Z", "payload": { "settledThroughRound": "568", "workAdded": "412", "completedBlockCount": "2", "lastCompletedBlock": "2001", "blockHeight": "2001" } },
+    { "id": "e8", "type": "system.settlement_completed", "occurredAt": "2026-11-07T18:20:36.000Z", "payload": { "settledThroughRound": "567", "workAdded": "0", "completedBlockCount": "0", "lastCompletedBlock": null, "blockHeight": "1999" } },
+    { "id": "e7", "type": "account.sqk_staked", "occurredAt": "2026-11-07T18:18:24.000Z", "payload": { "account": "0x61d608d04985759a9aa282e9733a1a126a073e13", "amountBaseUnits": "4301142000000000000000" } }
+  ]
+}
