@@ -1,0 +1,26 @@
+[Unit]
+Description=Wheelmates game server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wheelmates
+WorkingDirectory=/opt/wheelmates/server
+Environment=NODE_ENV=production
+Environment=PORT=8790
+Environment=HOST=127.0.0.1
+Environment=WHEELMATES_DB=/var/lib/wheelmates/wheelmates.sqlite
+Environment=WHEELMATES_ORIGINS=https://SITE_HOST
+Environment=WHEELMATES_SITE=https://SITE_HOST/
+ExecStart=/usr/bin/node --no-warnings=ExperimentalWarning src/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/wheelmates
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
