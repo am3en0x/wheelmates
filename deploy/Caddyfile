@@ -1,4 +1,5 @@
 # The site at the root, the API under api. Caddy gets and renews the certificates itself.
+# No www: the domain has no www record, and a site Caddy cannot certify only fills the log.
 SITE_HOST {
 	encode zstd gzip
 	root * /opt/wheelmates/web
@@ -6,10 +7,6 @@ SITE_HOST {
 	header Cache-Control "no-cache"
 	header /img/* Cache-Control "public, max-age=86400"
 	header /fonts/* Cache-Control "public, max-age=2592000"
-}
-
-www.SITE_HOST {
-	redir https://SITE_HOST{uri} permanent
 }
 
 api.SITE_HOST {
