@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About Wheelmates</title>
+  <meta name="description" content="How Wheelmates reads Squeekchain, what the wallet signature is for, and what the game never does.">
+  <link rel="icon" href="img/wheel-0.png" type="image/png">
+  <link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+  <main class="doc">
+    <p class="label">Squeekchain Genesis Code Lane</p>
+    <h1>Wheelmates</h1>
+    <p>A tap game around Squeektoshi, the real hamster whose wheel powers <a href="https://squeekchain.com">Squeekchain</a>. You push a wheel for seeds; he sets the tempo. Testnet only: seeds have no value, there is no token and nothing is sold.</p>
+
+    <h2>How it reads Squeekchain</h2>
+    <ul>
+      <li>Every 5 seconds the server reads the wheel's status from Squeekchain's public API: whether the device is online, its RPM and speed, today's distance, the Squeek block height and progress.</li>
+      <li>Two readings in a row with the wheel turning make him <b>running</b>: the wheel on your screen turns at his real RPM and every tap pays ×2. At 4.5 km/h or more he has the <b>zoomies</b>: ×3. Still or off air: ×1.</li>
+      <li>Every 15 seconds the server reads the event feed. A settlement on SqueekCore that completes Squeek blocks gives every player who was around in the last day a <b>chest</b>.</li>
+      <li>Passive income from the pantry runs ×1.5 while he runs, computed from a log of his phases, so what you earn away from the game is also his doing.</li>
+      <li>If you connect a wallet that holds Squeeks (in the wallet or in staking), the account API gives you a <b>holder bonus</b>: 10% per Squeek-equivalent (a Level 2 counts as 2.2), up to 50%, rechecked every ten minutes.</li>
+    </ul>
+
+    <h2>The wallet signature</h2>
+    <p>Signing in means signing a plain text message with your wallet: no gas, no transaction, no chain switch, no approval. It only proves the address is yours, so your seeds, cage and place on the board belong to it. The game never asks you to send a transaction and never touches a token.</p>
+
+    <h2>What the game never does</h2>
+    <ul>
+      <li>No transactions, no token, no payouts, no purchases. Seeds are points.</li>
+      <li>No tracking beyond what the game needs: your address, your seeds and your upgrades.</li>
+      <li>Not affiliated with Squeekchain. A community build for the Genesis Code Lane.</li>
+    </ul>
+
+    <h2>Fair play</h2>
+    <p>Everything is counted on the server: energy, seeds, multipliers and chests. Your browser only reports how many times you tapped, at most 15 a second and never beyond your energy, which comes back one point a second. Autoclickers gain nothing a thumb cannot.</p>
+
+    <p class="fine"><a href="./">Back to the cage</a> · <a href="https://github.com/am3en0x/wheelmates">Source</a> · <a href="https://docs.squeekchain.com/developers/api/">Squeekchain API</a></p>
+  </main>
+</body>
+</html>

@@ -1929,10 +1929,11 @@ img.px, canvas { image-rendering: pixelated; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* top bar: the live hamster */
-.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: rgb(0 0 0 / 0.9); border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
+.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: rgb(0 0 0 / 0.9); border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
 .live { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
 .live canvas { width: 28px; height: 28px; flex: none; }
-.live .state { display: grid; line-height: 1.2; min-width: 0; }
+.live .state { display: grid; line-height: 1.2; min-width: 0; flex: 1; }
+.live .state > * { overflow: hidden; text-overflow: ellipsis; }
 .live .state b { font: 700 16px/1 var(--head); text-transform: uppercase; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .live .state span { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .live .mult { font: 700 20px/1 var(--head); color: var(--accent); padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 6px; flex: none; }
@@ -1986,6 +1987,8 @@ tr.me td { color: var(--accent); }
 .hero-text { padding: 20px 0 6px; }
 .hero-text h1 { font-size: 40px; }
 .hero-text p { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+
+@media (max-width: 420px) { #connect .wide { display: none; } .live .mult { font-size: 17px; padding: 3px 6px; } }
 
 /* bottom tabs */
 .tabs { position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); background: rgb(0 0 0 / 0.92); border-top: 1px solid var(--line); backdrop-filter: blur(6px); padding-bottom: env(safe-area-inset-bottom); }
@@ -2092,9 +2095,9 @@ export function createCage(canvas) {
     const spinning = state.rpm > 0 || state.kick > 15
     const idx = Math.floor(((state.angle % 60) / 60) * 8) % 8
     const wheel = IMG.wheel[idx]
-    if (wheel.complete) ctx.drawImage(wheel, 116, 52, 128, 128)
+    if (wheel.complete) ctx.drawImage(wheel, 116, 74, 128, 128)
     const ham = spinning ? IMG.run[Math.floor(now / (spinning && state.rpm > 60 ? 70 : 110)) % 4] : IMG.nap
-    if (ham.complete) ctx.drawImage(ham, spinning ? 148 : 60, spinning ? 120 : 176, 64, 48)
+    if (ham.complete) ctx.drawImage(ham, spinning ? 148 : 60, spinning ? 142 : 176, 64, 48)
     state.floats = state.floats.filter((f) => now - f.at < 900)
     ctx.font = '700 22px "Barlow Condensed", sans-serif'
     ctx.textAlign = 'center'
@@ -2188,7 +2191,7 @@ setInterval(() => { if (live.rpm > 0) { miniAngle = (miniAngle + live.rpm * 0.6)
 // ---------------------------------------------------------------- the player
 function render() {
   const signed = Boolean(me)
-  $('connect').textContent = signed ? short(me.address) : 'Connect wallet'
+  $('connect').innerHTML = signed ? short(me.address) : 'Connect<span class="wide">&nbsp;wallet</span>'
   $('signout').hidden = !signed
   $('daily').hidden = !signed || !me.dailyClaimable
   if (signed) $('daily').textContent = `Daily bonus +${me.dailyReward}`
@@ -2357,7 +2360,7 @@ if (window.ethereum) window.ethereum.on?.('accountsChanged', () => { api.setToke
       <div class="state"><b id="liveText">Tuning in</b><span id="liveSub">Squeekchain</span></div>
       <span class="mult" id="liveMult" title="Tap multiplier right now">×1</span>
     </div>
-    <button class="btn small" id="connect">Connect wallet</button>
+    <button class="btn small" id="connect">Connect<span class="wide">&nbsp;wallet</span></button>
   </header>
 
   <main>

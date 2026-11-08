@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Wheelmates</title>
+  <meta name="description" content="Push the wheel with Squeektoshi. A tap game on the live Squeekchain hamster: when he runs, every tap pays more; when a block is found, you get a chest.">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="img/wheel-0.png" type="image/png">
+  <link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+  <header class="top">
+    <div class="live offair" id="live">
+      <canvas id="liveWheel" width="28" height="28" aria-hidden="true"></canvas>
+      <div class="state"><b id="liveText">Tuning in</b><span id="liveSub">Squeekchain</span></div>
+      <span class="mult" id="liveMult" title="Tap multiplier right now">×1</span>
+    </div>
+    <button class="btn small" id="connect">Connect<span class="wide">&nbsp;wallet</span></button>
+  </header>
+
+  <main>
+    <section class="tab on" id="tab-cage">
+      <div class="counters">
+        <div><span class="label">Seeds</span><strong class="num" id="seeds">0</strong></div>
+        <div class="right"><span class="label" id="rank">This week</span><strong class="num" id="seasonSeeds">0</strong></div>
+      </div>
+      <div class="cage-wrap">
+        <canvas id="cage" width="360" height="240" aria-label="Squeektoshi's cage. Tap to push the wheel."></canvas>
+        <span class="banner" id="banner">Tuning in</span>
+        <button class="chest-btn" id="chestBtn" hidden><img class="px" src="img/chest.png" alt=""><span id="chestCount"></span></button>
+      </div>
+      <div class="energy"><div class="bar"><div class="fill" id="energyFill"></div></div><div class="row"><span class="label">Energy</span><span class="num" id="energyText">500 / 500</span></div></div>
+      <div class="actions">
+        <button class="btn solid" id="daily" hidden>Daily bonus</button>
+        <button class="btn small" id="signout" hidden>Sign out</button>
+        <a class="btn small" href="about.html">About</a>
+      </div>
+      <p class="msg" id="msg" role="status" aria-live="polite">Tap the cage to push the wheel. When the real Squeektoshi runs, every tap pays more.</p>
+    </section>
+
+    <section class="tab" id="tab-upgrades">
+      <div class="hero-text"><h1>The cage</h1><p>Seeds buy a better wheel, a bigger bottle, softer bedding, a pantry that earns while you sleep.</p></div>
+      <div id="upgrades"></div>
+    </section>
+
+    <section class="tab" id="tab-friends">
+      <div class="hero-text"><h1>Friends</h1><p>Bring your wheelmates.</p></div>
+      <div id="friends"></div>
+      <form class="card" id="nameForm"><div class="label">Your name on the board</div><div class="copy"><input id="nameInput" maxlength="20" placeholder="3 to 20 characters" aria-label="Display name"><button class="btn small" type="submit">Save</button></div></form>
+    </section>
+
+    <section class="tab" id="tab-leaders">
+      <div class="hero-text"><h1>Leaders</h1><p id="leadersTitle">This week</p></div>
+      <div class="seg"><button class="on" data-scope="season">Week</button><button data-scope="all">All time</button></div>
+      <div id="leaders"></div>
+    </section>
+  </main>
+
+  <nav class="tabs" aria-label="Sections">
+    <button class="on" data-tab="cage">Cage</button>
+    <button data-tab="upgrades">Upgrades</button>
+    <button data-tab="friends">Friends</button>
+    <button data-tab="leaders">Leaders</button>
+  </nav>
+
+  <script src="config.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
