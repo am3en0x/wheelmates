@@ -34,7 +34,7 @@ get no holder bonus.
 
 ```sh
 cd server && npm install && npm test && npm start      # API on http://127.0.0.1:8790, SQLite file next to it
-python -m http.server 8080 -d web                       # the site; web/config.js picks the local API on localhost
+python -m http.server 8080 -d public                    # the site; public/config.js picks the local API on localhost
 python tools/art.py                                     # redraw the pixel art (Pillow)
 ```
 
@@ -48,18 +48,18 @@ token for a random `guest-…` id. Everything else is computed on the server; th
   seasons, passive income over the phase log). `phase.js`: readings and the phase machine. `poller.js`: reads
   Squeekchain, writes `phase_log` and `blocks`. `players.js`: the game, one SQLite transaction per request, plus guest
   adoption. `auth.js`: nonces, sessions, guests. `api.js`: HTTP, CORS, rate limit. `index.js`: boot.
-- `web/`: the site (canvas cage, four tabs, About). `tools/art.py`: the pixel art. `deploy/`: bootstrap, systemd
+- `public/`: the site (canvas cage, four tabs, About), served as is by Caddy, IMD or GitHub Pages. `tools/art.py`: the pixel art. `deploy/`: bootstrap, systemd
   unit, Caddyfile, deploy script. `docs/`: design, plan, IMD text, screenshots.
 
 ## Hosting
 
 The game lives at **wheelmates.app**, the API at **api.wheelmates.app**, both on one Ubuntu host behind Caddy.
 `deploy/bootstrap.sh DOMAIN` (once, on the host) installs a private Node 22 under `/opt/wheelmates/node`, Caddy, the
-`wheelmates` user, the systemd unit and the Caddyfile; `deploy/deploy.sh user@host` ships `server/` and `web/`,
-installs production deps and restarts the service. `web/config.js` picks the local API on localhost and the
-production API everywhere else, so the same `web/` serves the domain, the IMD mirror (see
+`wheelmates` user, the systemd unit and the Caddyfile; `deploy/deploy.sh user@host` ships `server/` and `public/`,
+installs production deps and restarts the service. `public/config.js` picks the local API on localhost and the
+production API everywhere else, so the same `public/` serves the domain, the IMD mirror (see
 [docs/IMD_JOB.md](docs/IMD_JOB.md)) and GitHub Pages. Node is pinned to 22.17 (`.nvmrc`).
 
 ## License
 
-MIT. The fonts in `web/fonts/` keep the SIL Open Font License 1.1.
+MIT. The fonts in `public/fonts/` keep the SIL Open Font License 1.1.

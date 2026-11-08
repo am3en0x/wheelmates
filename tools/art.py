@@ -1,11 +1,11 @@
-"""Draws Wheelmates' pixel art into web/img. Own drawings, hard pixels only (no anti-aliasing): a side-view cage, a
+"""Draws Wheelmates' pixel art into public/img. Own drawings, hard pixels only (no anti-aliasing): a side-view cage, a
 drum wheel on a stand in 12 frames, a tan hamster running (4 frames) and napping, a seed, a chest and six item icons.
 Run: python tools/art.py"""
 from pathlib import Path
 from PIL import Image
 import math
 
-OUT = Path(__file__).resolve().parent.parent / "web" / "img"
+OUT = Path(__file__).resolve().parent.parent / "public" / "img"
 OUT.mkdir(parents=True, exist_ok=True)
 
 WALL = (28, 26, 34)
