@@ -12,7 +12,7 @@ const live = { snapshot: () => snap }
 const squeek = { account: async () => ({ ok: true, data: { status: 'available', tokens: [{ basePower: '1000' }] } }) }
 const game = createGame({ db, live, squeek, siteUrl: 'http://site/' })
 const auth = createAuth({ db })
-const server = createServer({ auth, game, origins: ['http://site'], log: { error() {} } })
+const server = createServer({ auth, game, origins: ['http://site'], log: { error() {} }, rps: 1000 })
 await new Promise((r) => server.listen(0, '127.0.0.1', r))
 const base = `http://127.0.0.1:${server.address().port}`
 after(() => server.close())
@@ -66,4 +66,25 @@ test('bad json and oversized bodies', async () => {
   assert.equal(r.status, 400)
   const big = await fetch(base + '/auth/nonce', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: 'x'.repeat(20000) }) })
   assert.equal(big.status, 413)
+})
+
+test('play as guest, then link a wallet and keep the seeds', async () => {
+  const g = await call('/auth/guest', { method: 'POST', body: {} })
+  assert.equal(g.status, 200)
+  assert.ok(g.json.address.startsWith('guest-'))
+  const token = g.json.token
+  let me = await call('/me', { token })
+  assert.equal(me.json.holderBonus, 0)
+  const taps = await call('/taps', { method: 'POST', token, body: { count: 10, clientTs: Date.now(), batchId: 'g1' } })
+  assert.equal(taps.json.accepted, 10)
+  const fresh = Wallet.createRandom()
+  const { json: n } = await call('/auth/nonce', { method: 'POST', body: { address: fresh.address } })
+  const signature = await fresh.signMessage(n.message)
+  const v = await call('/auth/verify', { method: 'POST', token, body: { address: fresh.address, signature } })
+  assert.equal(v.status, 200)
+  assert.equal(v.json.adopted, true)
+  me = await call('/me', { token: v.json.token })
+  assert.equal(me.json.address, fresh.address.toLowerCase())
+  assert.equal(me.json.seeds, taps.json.total)
+  assert.equal((await call('/me', { token })).status, 401)
 })

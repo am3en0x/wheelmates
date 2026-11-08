@@ -243,3 +243,31 @@ test('housekeeping removes expired sessions, old chests, old batches and old log
   assert.equal(w.db.prepare('SELECT COUNT(*) AS n FROM tap_batches').get().n, 0)
   assert.equal(w.db.prepare('SELECT COUNT(*) AS n FROM phase_log').get().n, 1)
 })
+
+test('adopting a guest moves its progress to a wallet that has none, and never over a wallet with progress', () => {
+  const w = world()
+  const G = 'guest-0123456789abcdef'
+  w.game.me(G)
+  w.db.prepare('UPDATE players SET seeds = 300, season_seeds = 300 WHERE address = ?').run(G)
+  w.db.prepare("INSERT INTO upgrades (address, key, level) VALUES (?, 'wheel', 2)").run(G)
+  const code = w.game.me(G).referral.code
+  assert.equal(w.game.adopt(G, A), true)
+  const me = w.game.me(A)
+  assert.deepEqual([me.seeds, me.upgrades.wheel, me.referral.code], [300, 2, code])
+  assert.equal(w.db.prepare('SELECT COUNT(*) AS n FROM players WHERE address = ?').get(G).n, 0)
+  // a second guest cannot take over a wallet that already played
+  const G2 = 'guest-fedcba9876543210'
+  w.game.me(G2)
+  w.db.prepare('UPDATE players SET seeds = 50 WHERE address = ?').run(G2)
+  assert.equal(w.game.adopt(G2, A), false)
+  assert.equal(w.game.me(A).seeds, 300)
+  assert.equal(w.game.adopt('not-a-guest', B), false)
+})
+
+test('a guest gets no holder bonus check', async () => {
+  let calls = 0
+  const w = world({ get account() { calls++; return { ok: true, data: { status: 'available', tokens: [{ basePower: '1000' }] } } } })
+  w.game.me('guest-0123456789abcdef')
+  await w.game.refreshHolder('guest-0123456789abcdef')
+  assert.equal(calls, 0)
+})

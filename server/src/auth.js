@@ -48,5 +48,14 @@ export function createAuth({ db, now = Date.now }) {
     const row = st.find.get(token)
     return row && row.expires_at > now() ? row.address : null
   }
-  return { nonce, verify, session, logout: (token) => { if (token) st.logout.run(token) } }
+  // A guest: a random id instead of an address, no signature. Linking a wallet later moves the progress over.
+  function guest() {
+    const t = now()
+    const address = 'guest-' + randomBytes(8).toString('hex')
+    const token = randomBytes(32).toString('hex')
+    st.session.run(token, address, t + SESSION_TTL_MS, t)
+    return { token, address, expiresAt: t + SESSION_TTL_MS, guest: true }
+  }
+  const isGuest = (address) => typeof address === 'string' && address.startsWith('guest-')
+  return { nonce, verify, session, guest, isGuest, logout: (token) => { if (token) st.logout.run(token) } }
 }

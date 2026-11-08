@@ -18,4 +18,11 @@ export async function disconnect() {
   api.setToken(null)
 }
 
-export const short = (a) => (a ? a.slice(0, 6) + '…' + a.slice(-4) : '')
+export const short = (a) => (!a ? '' : a.startsWith('guest-') ? 'Guest ' + a.slice(6, 10) : a.slice(0, 6) + '…' + a.slice(-4))
+
+// A guest session: an id instead of a wallet, nothing to sign. Linking a wallet later keeps the progress.
+export async function playAsGuest(ref) {
+  const s = await api.call('/auth/guest', { method: 'POST', body: { ref } })
+  api.setToken(s.token)
+  return s
+}

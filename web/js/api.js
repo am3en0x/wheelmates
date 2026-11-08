@@ -15,7 +15,8 @@ export const api = {
     }
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
-      if (res.status === 401) api.setToken(null)
+      // a dead session logs out; a failed signature on /auth/verify must not, or a guest would lose the cage
+      if (res.status === 401 && (json.error === 'session_expired' || json.error === 'unauthorized')) api.setToken(null)
       throw { status: res.status, code: json.error || 'error', detail: json.detail }
     }
     return json

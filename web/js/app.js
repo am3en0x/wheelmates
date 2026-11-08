@@ -1,5 +1,5 @@
 import { api } from './api.js'
-import { connect, disconnect, short } from './wallet.js'
+import { connect, disconnect, playAsGuest, short } from './wallet.js'
 import { createCage } from './cage.js'
 
 const $ = (id) => document.getElementById(id)
@@ -65,11 +65,16 @@ function drawMiniWheel() {
 setInterval(() => { if (live.rpm > 0) { miniAngle = (miniAngle + live.rpm * 0.6) % 360; drawMiniWheel() } }, 100)
 
 // ---------------------------------------------------------------- the player
+const isGuest = () => Boolean(me) && me.address.startsWith('guest-')
+const weekLine = () => `<b>${fmt(me.seasonSeeds)}</b> this week · #${me.rank.season}${me.holderBonus ? ` · Squeek holder +${Math.round(me.holderBonus * 100)}%` : isGuest() ? ' · <span class="guest-note">guest: link a wallet to keep it</span>' : ''}`
+
 function render() {
   const signed = Boolean(me)
-  $('connect').className = 'btn small' + (signed ? ' addr' : '')
-  $('connect').innerHTML = signed ? short(me.address) : 'Connect<span class="wide">&nbsp;wallet</span>'
+  $('connect').className = 'btn small' + (signed && !isGuest() ? ' addr' : '')
+  $('connect').innerHTML = !signed ? 'Connect<span class="wide">&nbsp;wallet</span>' : isGuest() ? 'Link<span class="wide">&nbsp;wallet</span>' : short(me.address)
   $('signout').hidden = !signed
+  $('start').hidden = signed
+  $('guest').hidden = signed
   $('daily').hidden = !signed || !me.dailyClaimable
   if (signed) $('daily').textContent = `Daily bonus · +${fmt(me.dailyReward)}` + (me.streak ? ` · streak ${me.streak}` : '')
   const chests = signed ? me.chests : []
@@ -81,7 +86,7 @@ function render() {
   energyAt = performance.now()
   $('seeds').textContent = fmt(shownSeeds)
   $('balance').textContent = fmt(shownSeeds)
-  $('week').innerHTML = signed ? `<b>${fmt(me.seasonSeeds)}</b> this week · #${me.rank.season}${me.holderBonus ? ` · Squeek holder +${Math.round(me.holderBonus * 100)}%` : ''}` : 'Connect your wallet to start'
+  $('week').innerHTML = signed ? weekLine() : 'Connect a wallet or play as a guest'
   $('liveMult').textContent = '×' + mult()
   renderUpgrades()
   renderFriends()
@@ -134,7 +139,7 @@ async function loadLeaders(scope) {
 
 // ---------------------------------------------------------------- taps
 function onTap(e) {
-  if (!me) { say('Connect your wallet to play.'); return }
+  if (!me) { say('Connect a wallet or play as a guest to start.'); return }
   const now = performance.now()
   const energy = Math.min(me.energyMax, shownEnergy + (me.regenPerSec * (now - energyAt)) / 1000)
   if (energy < 1) { say('Out of energy: it comes back one a second.'); return }
@@ -166,7 +171,7 @@ async function flush() {
     me.live.multiplier = r.multiplier
     $('seeds').textContent = fmt(shownSeeds)
     $('balance').textContent = fmt(me.seeds)
-    $('week').innerHTML = `<b>${fmt(me.seasonSeeds)}</b> this week · #${me.rank.season}${me.holderBonus ? ` · Squeek holder +${Math.round(me.holderBonus * 100)}%` : ''}`
+    $('week').innerHTML = weekLine()
     renderUpgrades()
   } catch (err) {
     if (err.code === 'stale_session') await refresh()
@@ -186,14 +191,25 @@ async function refresh() {
   render()
 }
 
-$('connect').onclick = async () => {
-  if (me) return
+async function signIn() {
   try {
-    await connect(ref)
+    const wasGuest = isGuest()
+    const s = await connect(ref)
     await refresh()
-    say('Connected. Tap the cage.', 'good')
+    say(wasGuest ? (s.adopted ? 'Wallet linked. Your seeds came along.' : 'Wallet linked. It already had its own cage, so that one is yours now.') : 'Connected. Tap the cage.', 'good')
   } catch (e) {
-    say(e.code === 'no_wallet' ? 'No wallet found. Install MetaMask or open this page in a wallet browser.' : e.code === 4001 || e.code === 'ACTION_REJECTED' ? 'Signature cancelled.' : 'Could not sign in: ' + (e.code || e.message || e), 'bad')
+    say(e.code === 'no_wallet' ? 'No wallet found. Install MetaMask, open this page in a wallet browser, or play as a guest.' : e.code === 4001 || e.code === 'ACTION_REJECTED' ? 'Signature cancelled.' : 'Could not sign in: ' + (e.code || e.message || e), 'bad')
+  }
+}
+$('connect').onclick = () => { if (!me || isGuest()) signIn() }
+$('start').onclick = signIn
+$('guest').onclick = async () => {
+  try {
+    await playAsGuest(ref)
+    await refresh()
+    say('Playing as a guest. Tap the cage. Link a wallet any time to keep your seeds.', 'good')
+  } catch (e) {
+    say('Could not start: ' + (e.code || e.message || e), 'bad')
   }
 }
 $('signout').onclick = async () => { await disconnect(); me = null; render() }

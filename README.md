@@ -22,6 +22,10 @@ is 2.2), up to 50%. Daily bonus: 100 × streak up to 7. Friends: 5% of the first
 20,000 a week. Seasons are ISO weeks (Monday 00:00 UTC). The full rules, with every number, are in
 [the design](docs/superpowers/specs/2026-11-09-wheelmates-design.md).
 
+Sign in with a wallet (a signed message: no gas, no transaction, no chain switch) or **play as a guest** with nothing to
+sign. A guest's cage moves to the wallet when one is linked, unless that wallet already has a cage of its own. Guests
+get no holder bonus.
+
 ![the cage on a phone](docs/screens/cage-phone.png)
 
 ## Run it

@@ -69,6 +69,8 @@ main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: 10px 12p
 .energy .row { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 5px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .actions .btn.solid { flex: 1 1 100%; min-height: 50px; font-size: 13px; }
+.actions #guest { flex: 1 1 100%; min-height: 46px; }
+.guest-note { color: var(--muted); }
 .msg { min-height: 1.4em; margin: 10px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
 .msg.bad { color: var(--bad); }
 .msg.good { color: var(--good); }

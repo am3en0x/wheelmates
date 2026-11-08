@@ -50,3 +50,13 @@ test('logout ends the session', async () => {
   auth.logout(s.token)
   assert.equal(auth.session(s.token), null)
 })
+
+test('a guest gets a session for a guest id, no signature needed', () => {
+  const { auth } = harness()
+  const g = auth.guest()
+  assert.ok(/^guest-[0-9a-f]{16}$/.test(g.address))
+  assert.equal(g.guest, true)
+  assert.equal(auth.session(g.token), g.address)
+  assert.equal(auth.isGuest(g.address), true)
+  assert.equal(auth.isGuest(wallet.address.toLowerCase()), false)
+})

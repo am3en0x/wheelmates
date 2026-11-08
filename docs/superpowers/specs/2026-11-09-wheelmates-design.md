@@ -159,6 +159,11 @@ Buying needs the full cost in seeds; the server checks max level and balance.
   and expires in 10 minutes. The server issues a session token (32 random bytes, hex) in `sessions(token, address,
   expiresAt = 30 days)`, returned as JSON; the client keeps it in `localStorage` and sends `Authorization: Bearer`.
 - `POST /auth/logout` deletes the session.
+- `POST /auth/guest {ref?}` (added 2026-11-09): a session for a fresh `guest-<16 hex>` id, nothing to sign. Guests
+  play everything but get no holder bonus. A guest who later calls `/auth/verify` with its bearer token has its row,
+  upgrades, chests and referral links renamed to the wallet address when that wallet has no progress of its own
+  (no seeds, no season seeds, no upgrades); otherwise the wallet keeps its own cage. The response carries `adopted`.
+  The guest keeps its referral code, so invite links shared as a guest keep working.
 - Housekeeping: every `/auth/nonce` first deletes expired nonces; a daily job deletes expired sessions, claimed or
   expired chests older than 7 days, `phase_log` rows older than 14 days and tap batch ids older than a day.
 - CORS: `Access-Control-Allow-Origin` for the site's origins (config list), credentials not used.

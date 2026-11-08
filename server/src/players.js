@@ -1,4 +1,4 @@
-import { keccak256, toUtf8Bytes } from 'ethers'
+import { keccak256, toUtf8Bytes, isAddress } from 'ethers'
 import * as R from './rules.js'
 
 export class GameError extends Error {
@@ -48,6 +48,14 @@ export function createGame({ db, live, squeek, now = Date.now, siteUrl = '' }) {
     leadersAll: S('SELECT address, name, seeds, holder_bonus FROM players ORDER BY seeds DESC, address LIMIT ?'),
     rankSeason: S('SELECT COUNT(*) + 1 AS r FROM players WHERE season = ? AND season_seeds > ?'),
     rankAll: S('SELECT COUNT(*) + 1 AS r FROM players WHERE seeds > ?'),
+    adoptPlayer: S('UPDATE players SET address = ? WHERE address = ?'),
+    adoptUpgrades: S('UPDATE upgrades SET address = ? WHERE address = ?'),
+    adoptChests: S('UPDATE chests SET address = ? WHERE address = ?'),
+    adoptInviter: S('UPDATE players SET inviter = ? WHERE inviter = ?'),
+    adoptEarnInviter: S('UPDATE referral_earnings SET inviter = ? WHERE inviter = ?'),
+    adoptEarnFriend: S('UPDATE referral_earnings SET friend = ? WHERE friend = ?'),
+    hasLevels: S('SELECT COUNT(*) AS n FROM upgrades WHERE address = ?'),
+    deletePlayer: S('DELETE FROM players WHERE address = ?'),
     hk: [
       S('DELETE FROM sessions WHERE expires_at < ?'),
       S('DELETE FROM nonces WHERE expires_at < ?'),
@@ -294,8 +302,32 @@ export function createGame({ db, live, squeek, now = Date.now, siteUrl = '' }) {
     })
   }
 
+  // A guest's progress moves to a wallet that has none of its own (a row with no seeds, no season seeds and no
+  // upgrades counts as none). The guest keeps its referral code, so invite links shared as a guest keep working.
+  function adopt(guest, address) {
+    return tx(() => {
+      address = String(address).toLowerCase()
+      if (!String(guest).startsWith('guest-') || !isAddress(address)) return false
+      if (!st.player.get(guest)) return false
+      const existing = st.player.get(address)
+      if (existing) {
+        if (existing.seeds > 0 || existing.season_seeds > 0 || st.hasLevels.get(address).n > 0) return false
+        st.deletePlayer.run(address)
+      }
+      st.adoptPlayer.run(address, guest)
+      st.adoptUpgrades.run(address, guest)
+      st.adoptChests.run(address, guest)
+      st.adoptInviter.run(address, guest)
+      st.adoptEarnInviter.run(address, guest)
+      st.adoptEarnFriend.run(address, guest)
+      return true
+    })
+  }
+
   // Squeek holdings from Squeekchain's account API, at most every ten minutes; a failed read keeps the last value.
+  // Guests have no wallet, so nothing to read.
   async function refreshHolder(address) {
+    if (!isAddress(String(address))) return
     const p = st.player.get(String(address).toLowerCase())
     if (!p || now() - p.holder_checked_at < 10 * 60e3) return
     const r = await squeek.account(p.address)
@@ -327,5 +359,5 @@ export function createGame({ db, live, squeek, now = Date.now, siteUrl = '' }) {
     log.run(t - 14 * 86400e3)
   }
 
-  return { touch, me, taps, upgrade, claimChest, daily, setName, refreshHolder, leaderboard, liveView, health, housekeeping }
+  return { touch, me, taps, upgrade, claimChest, daily, setName, adopt, refreshHolder, leaderboard, liveView, health, housekeeping }
 }

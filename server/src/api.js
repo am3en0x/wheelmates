@@ -2,12 +2,12 @@ import http from 'node:http'
 import { GameError } from './players.js'
 
 // The HTTP door: JSON in and out, CORS for the site's origins, 20 requests a second per IP, bearer sessions.
-export function createServer({ auth, game, origins = [], now = Date.now, log = console }) {
+export function createServer({ auth, game, origins = [], now = Date.now, log = console, rps = 20 }) {
   const buckets = new Map()
   function allow(ip) {
     const t = now()
-    const b = buckets.get(ip) || { tokens: 20, at: t }
-    b.tokens = Math.min(20, b.tokens + ((t - b.at) / 1000) * 20)
+    const b = buckets.get(ip) || { tokens: rps, at: t }
+    b.tokens = Math.min(rps, b.tokens + ((t - b.at) / 1000) * rps)
     b.at = t
     const ok = b.tokens >= 1
     if (ok) b.tokens -= 1
@@ -80,8 +80,22 @@ export function createServer({ auth, game, origins = [], now = Date.now, log = c
       if (route === 'POST /auth/verify') {
         const b = await body(req)
         const s = auth.verify(String(b.address || ''), String(b.signature || ''))
+        // a guest who signs in with a wallet brings the progress along
+        const guestToken = bearer(req)
+        const guest = auth.session(guestToken)
+        let adopted = false
+        if (guest && auth.isGuest(guest)) {
+          adopted = game.adopt(guest, s.address)
+          auth.logout(guestToken)
+        }
         game.touch(s.address, b.ref)
-        return send(res, 200, s)
+        return send(res, 200, { ...s, adopted })
+      }
+      if (route === 'POST /auth/guest') {
+        const b = await body(req)
+        const g = auth.guest()
+        game.touch(g.address, b.ref)
+        return send(res, 200, g)
       }
       if (route === 'POST /auth/logout') {
         auth.logout(bearer(req))
