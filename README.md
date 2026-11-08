@@ -6,6 +6,8 @@ found, six cage upgrades, a bonus for Squeek holders, friends, a daily streak an
 [Squeekchain Genesis Code Lane](https://squeekchain.com/genesis/code). Testnet only: seeds have no value, there is no
 token and nothing is sold. Not affiliated with Squeekchain.
 
+Play at **[wheelmates.app](https://wheelmates.app)**.
+
 ## How the hamster plays
 
 | Squeektoshi | What happens in the game |
@@ -32,5 +34,32 @@ get no holder bonus.
 
 ```sh
 cd server && npm install && npm test && npm start      # API on http://127.0.0.1:8790, SQLite file next to it
-python -m http.server 8080 -d web                       # the site; web/config.js points at the API
+python -m http.server 8080 -d web                       # the site; web/config.js picks the local API on localhost
 python tools/art.py                                     # redraw the pixel art (Pillow)
+```
+
+The server verifies wallet signatures with `ethers` and issues a 30-day bearer token; guests get the same kind of
+token for a random `guest-…` id. Everything else is computed on the server; the browser only reports tap counts
+(`count`, `clientTs`, `batchId`) every two seconds.
+
+## Layout
+
+- `server/src/rules.js`: pure game math (costs, stats, taps, multipliers, chests, holder bonus, streaks, referrals,
+  seasons, passive income over the phase log). `phase.js`: readings and the phase machine. `poller.js`: reads
+  Squeekchain, writes `phase_log` and `blocks`. `players.js`: the game, one SQLite transaction per request, plus guest
+  adoption. `auth.js`: nonces, sessions, guests. `api.js`: HTTP, CORS, rate limit. `index.js`: boot.
+- `web/`: the site (canvas cage, four tabs, About). `tools/art.py`: the pixel art. `deploy/`: bootstrap, systemd
+  unit, Caddyfile, deploy script. `docs/`: design, plan, IMD text, screenshots.
+
+## Hosting
+
+The game lives at **wheelmates.app**, the API at **api.wheelmates.app**, both on one Ubuntu host behind Caddy.
+`deploy/bootstrap.sh DOMAIN` (once, on the host) installs a private Node 22 under `/opt/wheelmates/node`, Caddy, the
+`wheelmates` user, the systemd unit and the Caddyfile; `deploy/deploy.sh user@host` ships `server/` and `web/`,
+installs production deps and restarts the service. `web/config.js` picks the local API on localhost and the
+production API everywhere else, so the same `web/` serves the domain, the IMD mirror (see
+[docs/IMD_JOB.md](docs/IMD_JOB.md)) and GitHub Pages. Node is pinned to 22.17 (`.nvmrc`).
+
+## License
+
+MIT. The fonts in `web/fonts/` keep the SIL Open Font License 1.1.
