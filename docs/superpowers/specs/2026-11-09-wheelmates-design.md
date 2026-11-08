@@ -1,6 +1,6 @@
 # Wheelmates: design
 
-Date: 2026-11-09. Status: approved in chat ("ок, оставляем"); revised after the self-review (9 findings), pending
+Date: 2026-11-09. Status: approved in chat ("ок, оставляем"); revised after two self-reviews (9 + 7 findings), pending
 written-spec review.
 
 ## Goal
@@ -37,7 +37,9 @@ combos or ciphers.
 - Energy: `energyMax` base 500 (Bottle upgrade), regenerates `regenPerSec` base 1 (Bedding upgrade). Each accepted tap
   spends 1 energy. Taps beyond the energy available are dropped, not queued.
 - Rate cap: the server accepts at most 15 taps per second per player, measured over the batch's window (batches every
-  2 s, so 30 per batch); the rest are dropped.
+  2 s, so 30 per batch); the rest are dropped. The cap only matters while there is energy: once the pool is spent, the
+  tempo is the regeneration rate (1 tap per second at base, 6 at max Bedding). A session is therefore a burst of
+  `energyMax` taps and then a trickle; the client shows the energy bar so this is visible, not surprising.
 - Seeds from a tap batch = `accepted × tapPower × liveMultiplier × (1 + holderBonus)`, integer, floored.
 - Against unattended clickers (seeds have no value, so this is proportionate):
   - `clientTs` must be within 5 s of server time, else 400 `clock_skew`;
@@ -61,7 +63,10 @@ The server's poller turns `/v1/status` into a phase, with the same rules as a ca
 
 Sneakers upgrade adds `+0.1 × level` to the running and zoomies multipliers (max level 10, so up to +1.0).
 `GET /live` returns `{phase, rpm, speedKmh, todayKm, block, progress, multiplier, observedAt}` for the site; the site
-polls it every 5 s and turns the wheel at `rpm` while `phase` is running or zoomies.
+polls it every 5 s. `rpm` and `speedKmh` are the latest reading, shown at once: the wheel on screen turns as soon as
+he does. `phase` and `multiplier` change only after the second confirming poll, so for the first 5 seconds of a run the
+wheel already turns while the label still says still and taps still pay ×1. The same `multiplier` the poller holds at
+the moment a tap batch arrives is the one applied to it; the client's displayed multiplier is informational.
 
 ### Passive income
 
@@ -71,7 +76,9 @@ polls it every 5 s and turns the wheel at `rpm` while `phase` is running or zoom
 - The log never has a gap: on start the poller looks at the last row, and if it is older than 10 s it writes an
   `offair` row stamped 5 s after it, then the current phase once the first reading arrives. Downtime therefore
   integrates at ×1, never at ×1.5.
-- Accrued seeds are credited on every authenticated request (`/me`, `/taps`), then `lastSeenAt` moves.
+- Accrued seeds are credited on every authenticated request (`/me`, `/taps`), then `lastSeenAt` moves. They count
+  for the season current at the moment of crediting, whole: a player away across a Monday brings up to
+  `offlineCapHours` of income into the new season, never into the old one.
 
 ### Upgrades (cage items)
 
@@ -99,10 +106,13 @@ Buying needs the full cost in seeds; the server checks max level and balance.
 
 - When a `system.settlement_completed` event with `completedBlockCount > 0` appears (deduplicated by event id), the
   server only records it: `blocks(event_id PK, block, blocks, at)`. Nothing is written per player at that moment.
+- A new player starts with `chest_cursor = now` (and `last_seen_at = now`), so the first sign-in never pays for blocks
+  found before the player existed.
 - Chests are created lazily, on a player's next authenticated request: for every recorded block with
   `at > player.chest_cursor` and `at < player.last_seen_at + 24 h` (the player was active in the day before the block),
-  one chest `seeds = 50 + 30 × seedsPerHour / 60 + 20 × tapPower` (a flat 50, half an hour of passive income and twenty
-  strong taps), then `chest_cursor = now`. At most 10 open chests per player; older unclaimed ones are dropped first.
+  one chest `seeds = 50 + seedsPerHour / 2 + 20 × tapPower` (a flat 50, half an hour of passive income and twenty
+  strong taps, floored), then `chest_cursor = now`. At most 10 open chests per player; older unclaimed ones are dropped
+  first.
 - Chests expire 24 hours after their block. `/me` lists open chests with the Squeek block number; `POST /chest/claim
   {id}` credits one and `POST /chest/claim {all: true}` credits all.
 
@@ -122,7 +132,8 @@ Buying needs the full cost in seeds; the server checks max level and balance.
 
 - Every player has a referral code: the first 8 hex chars of `keccak256(address)`. Link `?ref=CODE`. On first sign-in
   with a valid `ref` of another player, the inviter is stored. The inviter earns 5% of every seed the friend earns
-  from taps and chests, credited in the same transaction (not deducted from the friend), from the first 10 friends
+  from taps and chests only (passive income and the daily bonus give the inviter nothing), credited in the same
+  transaction (not deducted from the friend), from the first 10 friends
   only (by sign-in order) and at most 20,000 seeds per season from all friends together. Later friends appear in the
   list and earn nothing for the inviter. `/me` shows friends, which ones count, and the total earned.
 
@@ -165,7 +176,7 @@ Buying needs the full cost in seeds; the server checks max level and balance.
 | `POST /chest/claim {id}` or `{all: true}` | yes | `/me` shape, or 404 |
 | `POST /daily` | yes | `/me` shape, or 409 `already_claimed` |
 | `POST /name {name}` | yes | `/me` shape, or 409 `name_taken` / 400 `invalid_name` / 429 `name_cooldown` |
-| `GET /healthz` | no | 200 while the poller saw the API in the last 2 minutes, 503 otherwise (body says) |
+| `GET /healthz` | no | always 200 while the process serves: `{ok: true, api: "ok" \| "stale", lastReadingAt, db: "ok"}`; `api: "stale"` after 2 minutes without a reading. A Squeekchain outage is not a reason to restart a healthy game server |
 
 Errors are `{error, detail?}` with 400/401/404/409/429. Per-IP rate limit: 20 requests per second, 429 with
 `Retry-After`.
@@ -228,7 +239,10 @@ six item icons into `web/img/*.png` (pixelated, 4× scale in CSS). Own drawings,
   in-memory database with `fetch` stubbed. Also: the pantry payback bounds and the 150,000 cost ceiling; clock skew,
   one batch per second, the stale-session rule and idempotent batch ids; the phase log's downtime row; lazy chests
   (created on the next request, only for players active before the block, cap of 10, claim all); the referral cap
-  (10 friends, 20,000 per season); the name cooldown; nonce cleanup.
+  (10 friends, 20,000 per season); the name cooldown; nonce cleanup; the tempo after the pool is spent; `/live`
+  showing rpm at once while the multiplier waits for confirmation; passive income across a season boundary going to
+  the new season; a new player's empty chest list; referral earnings ignoring passive income and the daily bonus;
+  `/healthz` staying 200 with `api: "stale"`.
 - Site: a browser check with a stub wallet (window.ethereum that signs with a test key) against the real local server:
   connect, tap, buy an upgrade, claim a chest, leaderboard; no console errors; 390 px and 1280 px screenshots.
 
@@ -238,6 +252,10 @@ six item icons into `web/img/*.png` (pixelated, 4× scale in CSS). Own drawings,
   `WHEELMATES_ORIGINS=https://<site>`), port 8790 on localhost; Caddy reverse-proxies `api.<domain>` to it with
   automatic HTTPS. Deploy script: rsync `server/`, `npm ci --omit=dev`, restart. Nothing in the repo holds a secret;
   the server needs no key at all.
+- Node is pinned: `.nvmrc` and `package.json` `engines` say `22.17.x`, and the deploy script refuses another major.
+  `node:sqlite` is marked experimental in Node 22 but has shipped without a flag since 22.13; the server starts with
+  `--no-warnings=ExperimentalWarning` so the log stays clean. If a later Node breaks it, the fallback is
+  `better-sqlite3`, behind the same small `db.js` interface.
 - The owner buys a short domain without crypto words; until then the site runs locally against `http://localhost:8790`.
 
 ## Out of scope
