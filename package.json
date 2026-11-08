@@ -1,0 +1,12 @@
+{
+  "name": "wheelmates",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "22.17.x" },
+  "scripts": {
+    "test": "cd server && npm test",
+    "start": "cd server && npm start",
+    "art": "python tools/art.py",
+    "site": "python -m http.server 8080 -d web"
+  }
+}

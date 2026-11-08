@@ -1,0 +1,13 @@
+{
+  "name": "wheelmates-server",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "22.17.x" },
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning src/index.js",
+    "test": "node --no-warnings=ExperimentalWarning --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "ethers": "^6.13.0"
+  }
+}

@@ -96,9 +96,9 @@ Every value is rounded to an integer. Pantry is priced by payback: level 1 costs
 about 137,000 (Sneakers 10); the first levels cost 30 to 300, a few minutes of tapping. A test asserts every pantry
 level pays back within 6 to 24 hours and no level costs more than 150,000.
 
-Reference costs: Wheel 30 / 2,162 / 117,171 at levels 1 / 15 / 30; Bottle 50 / 2,559 / 100,769; Bedding 100 / 2,893 /
-59,763 at 1 / 10 / 20; Pantry 240 / 5,964 / 116,640 at 1 / 15 / 30; Stash 300 / 3,149 / 33,060 at 1 / 5 / 9; Sneakers
-2,000 / 20,972 / 137,439 at 1 / 6 / 10.
+Reference costs: Wheel 30 / 2,162 / 117,171 at levels 1 / 16 / 30; Bottle 50 / 2,559 / 100,769 at 1 / 16 / 30; Bedding
+100 / 2,893 / 59,763 at 1 / 11 / 20; Pantry 240 / 5,964 / 116,640 at 1 / 15 / 30; Stash 300 / 3,149 / 33,060 at 1 / 5 / 9;
+Sneakers 2,000 / 20,972 / 137,439 at 1 / 6 / 10.
 
 Buying needs the full cost in seeds; the server checks max level and balance.
 

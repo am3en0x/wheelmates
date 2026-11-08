@@ -125,7 +125,7 @@ import * as R from '../src/rules.js'
 
 test('upgrade costs match the spec table', () => {
   assert.equal(R.UPGRADES.wheel.cost(1), 30)
-  assert.equal(R.UPGRADES.wheel.cost(15), 2162)
+  assert.equal(R.UPGRADES.wheel.cost(16), 2162)
   assert.equal(R.UPGRADES.wheel.cost(30), 117171)
   assert.equal(R.UPGRADES.bottle.cost(30), 100769)
   assert.equal(R.UPGRADES.bedding.cost(20), 59763)
