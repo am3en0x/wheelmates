@@ -1,6 +1,7 @@
 # Wheelmates: design
 
-Date: 2026-11-09. Status: approved in chat ("ок, оставляем"), pending written-spec review.
+Date: 2026-11-09. Status: approved in chat ("ок, оставляем"); revised after the self-review (9 findings), pending
+written-spec review.
 
 ## Goal
 
@@ -38,6 +39,14 @@ combos or ciphers.
 - Rate cap: the server accepts at most 15 taps per second per player, measured over the batch's window (batches every
   2 s, so 30 per batch); the rest are dropped.
 - Seeds from a tap batch = `accepted × tapPower × liveMultiplier × (1 + holderBonus)`, integer, floored.
+- Against unattended clickers (seeds have no value, so this is proportionate):
+  - `clientTs` must be within 5 s of server time, else 400 `clock_skew`;
+  - at most one batch per second per session; a second one inside that second is 429 `too_fast`;
+  - a batch is accepted only if the session fetched `/me` in the last 30 minutes (the page does it on load and every 10
+    minutes), else 409 `stale_session` and the client refreshes;
+  - energy and the 15 taps/s cap are the hard ceiling: at base regen no wallet can clear more than 86,400 taps a day.
+- Every batch carries a client `batchId` (UUID). The server keeps the last 20 ids per session and answers a repeated id
+  with the original response without crediting again, so two tabs or a retried request never double-count.
 
 ### The live hamster
 
@@ -58,29 +67,44 @@ polls it every 5 s and turns the wheel at `rpm` while `phase` is running or zoom
 
 - `seedsPerHour` base 0 (Pantry upgrade). It accrues from `lastSeenAt` to now, capped at `offlineCapHours` (base 3,
   Stash upgrade, max 12). While the hamster ran during that window the rate is ×1.5: the server keeps a log of phase
-  changes and integrates exactly.
+  changes (`phase_log`) and integrates exactly.
+- The log never has a gap: on start the poller looks at the last row, and if it is older than 10 s it writes an
+  `offair` row stamped 5 s after it, then the current phase once the first reading arrives. Downtime therefore
+  integrates at ×1, never at ×1.5.
 - Accrued seeds are credited on every authenticated request (`/me`, `/taps`), then `lastSeenAt` moves.
 
 ### Upgrades (cage items)
 
 | Key | Name | Effect per level | Max level | Cost of level n |
 | --- | --- | --- | --- | --- |
-| `wheel` | Wheel | `tapPower = 1 + n` | 30 | `50 × 1.35^(n-1)` |
-| `bottle` | Water bottle | `energyMax = 500 + 100n` | 30 | `80 × 1.3^(n-1)` |
-| `bedding` | Bedding | `regenPerSec = 1 + 0.25n` | 20 | `120 × 1.35^(n-1)` |
-| `pantry` | Pantry | `seedsPerHour = 60 × n × 1.15^(n-1)` | 30 | `200 × 1.4^(n-1)` |
-| `stash` | Seed stash | `offlineCapHours = 3 + n` | 9 | `500 × 1.6^(n-1)` |
-| `sneakers` | Sneakers | live multiplier `+0.1n` | 10 | `1000 × 1.7^(n-1)` |
+| `wheel` | Wheel | `tapPower = 1 + n` | 30 | `30 × 1.33^(n-1)` |
+| `bottle` | Water bottle | `energyMax = 500 + 100n` | 30 | `50 × 1.3^(n-1)` |
+| `bedding` | Bedding | `regenPerSec = 1 + 0.25n` | 20 | `100 × 1.4^(n-1)` |
+| `pantry` | Pantry | adds `gain(n) = 40 × 1.18^(n-1)` seeds/hour; `seedsPerHour = Σ gain(1..n)` | 30 | `gain(n) × (6 + 18 × (n-1)/29)` |
+| `stash` | Seed stash | `offlineCapHours = 3 + n` | 9 | `300 × 1.8^(n-1)` |
+| `sneakers` | Sneakers | live multiplier `+0.1n` | 10 | `2000 × 1.6^(n-1)` |
 
-Costs are rounded to integers. Buying needs the full cost in seeds; the server checks max level and balance.
+Every value is rounded to an integer. Pantry is priced by payback: level 1 costs 240 and pays back in 6 hours, level
+30 costs 116,640 and pays back in 24 hours; the full pantry gives 31,639 seeds/hour. The dearest level of any item is
+about 137,000 (Sneakers 10); the first levels cost 30 to 300, a few minutes of tapping. A test asserts every pantry
+level pays back within 6 to 24 hours and no level costs more than 150,000.
+
+Reference costs: Wheel 30 / 2,162 / 117,171 at levels 1 / 15 / 30; Bottle 50 / 2,559 / 100,769; Bedding 100 / 2,893 /
+59,763 at 1 / 10 / 20; Pantry 240 / 5,964 / 116,640 at 1 / 15 / 30; Stash 300 / 3,149 / 33,060 at 1 / 5 / 9; Sneakers
+2,000 / 20,972 / 137,439 at 1 / 6 / 10.
+
+Buying needs the full cost in seeds; the server checks max level and balance.
 
 ### Block chests
 
 - When a `system.settlement_completed` event with `completedBlockCount > 0` appears (deduplicated by event id), the
-  server creates a chest for every player seen in the last 24 hours: `seeds = 50 + 30 × seedsPerHour / 60 + 20 × tapPower`,
-  that is a flat 50, half an hour of passive income and twenty strong taps.
-- Chests expire 24 hours after creation. `/me` lists open chests with the Squeek block number; `POST /chest/claim`
-  credits one.
+  server only records it: `blocks(event_id PK, block, blocks, at)`. Nothing is written per player at that moment.
+- Chests are created lazily, on a player's next authenticated request: for every recorded block with
+  `at > player.chest_cursor` and `at < player.last_seen_at + 24 h` (the player was active in the day before the block),
+  one chest `seeds = 50 + 30 × seedsPerHour / 60 + 20 × tapPower` (a flat 50, half an hour of passive income and twenty
+  strong taps), then `chest_cursor = now`. At most 10 open chests per player; older unclaimed ones are dropped first.
+- Chests expire 24 hours after their block. `/me` lists open chests with the Squeek block number; `POST /chest/claim
+  {id}` credits one and `POST /chest/claim {all: true}` credits all.
 
 ### Holder bonus
 
@@ -98,15 +122,17 @@ Costs are rounded to integers. Buying needs the full cost in seeds; the server c
 
 - Every player has a referral code: the first 8 hex chars of `keccak256(address)`. Link `?ref=CODE`. On first sign-in
   with a valid `ref` of another player, the inviter is stored. The inviter earns 5% of every seed the friend earns
-  from taps and chests, credited in the same transaction (not deducted from the friend). `/me` shows friends and the
-  total earned from them.
+  from taps and chests, credited in the same transaction (not deducted from the friend), from the first 10 friends
+  only (by sign-in order) and at most 20,000 seeds per season from all friends together. Later friends appear in the
+  list and earn nothing for the inviter. `/me` shows friends, which ones count, and the total earned.
 
 ### Seasons and leaderboard
 
 - `season` = ISO week starting Monday 00:00 UTC, key `YYYY-Www`. `players.seasonSeeds` resets when a request arrives
   in a new season (the old value is archived into `season_results(season, address, seeds)`).
 - `GET /leaderboard?scope=season|all&limit=100`: rank, short address (or display name if set), seeds, holder flag.
-- A display name: `POST /name` with 3 to 20 characters `[A-Za-z0-9_ ]`, unique, filtered by a small bad-word list.
+- A display name: `POST /name` with 3 to 20 characters `[A-Za-z0-9_ ]`, unique (case-insensitive), filtered by a small
+  bad-word list, changeable once per 24 hours (429 `name_cooldown`).
 
 ## Authentication
 
@@ -122,6 +148,8 @@ Costs are rounded to integers. Buying needs the full cost in seeds; the server c
   and expires in 10 minutes. The server issues a session token (32 random bytes, hex) in `sessions(token, address,
   expiresAt = 30 days)`, returned as JSON; the client keeps it in `localStorage` and sends `Authorization: Bearer`.
 - `POST /auth/logout` deletes the session.
+- Housekeeping: every `/auth/nonce` first deletes expired nonces; a daily job deletes expired sessions, claimed or
+  expired chests older than 7 days, `phase_log` rows older than 14 days and tap batch ids older than a day.
 - CORS: `Access-Control-Allow-Origin` for the site's origins (config list), credentials not used.
 
 ## API
@@ -132,11 +160,11 @@ Costs are rounded to integers. Buying needs the full cost in seeds; the server c
 | `GET /leaderboard?scope&limit` | no | `{season, rows:[{rank, address, name, seeds, holder}]}` |
 | `POST /auth/nonce`, `/auth/verify`, `/auth/logout` | see above | |
 | `GET /me` | yes | `{address, name, seeds, seasonSeeds, energy, energyMax, regenPerSec, tapPower, seedsPerHour, offlineCapHours, upgrades:{key: level}, costs:{key: nextCost|null}, holderBonus, holderEquivalents, streak, dailyClaimable, chests:[{id, block, seeds, expiresAt}], referral:{code, link, friends, earned}, live}` |
-| `POST /taps {count, clientTs}` | yes | `{accepted, seeds, energy, seasonSeeds, multiplier}`; `count` 1..60 |
+| `POST /taps {count, clientTs, batchId}` | yes | `{accepted, seeds, energy, seasonSeeds, multiplier}`; `count` 1..60; 400 `clock_skew`, 429 `too_fast`, 409 `stale_session` |
 | `POST /upgrade {key}` | yes | `/me` shape, or 409 `insufficient_seeds` / `max_level` |
-| `POST /chest/claim {id}` | yes | `/me` shape, or 404 |
+| `POST /chest/claim {id}` or `{all: true}` | yes | `/me` shape, or 404 |
 | `POST /daily` | yes | `/me` shape, or 409 `already_claimed` |
-| `POST /name {name}` | yes | `/me` shape, or 409 `name_taken` / 400 `invalid_name` |
+| `POST /name {name}` | yes | `/me` shape, or 409 `name_taken` / 400 `invalid_name` / 429 `name_cooldown` |
 | `GET /healthz` | no | 200 while the poller saw the API in the last 2 minutes, 503 otherwise (body says) |
 
 Errors are `{error, detail?}` with 400/401/404/409/429. Per-IP rate limit: 20 requests per second, 429 with
@@ -144,11 +172,13 @@ Errors are `{error, detail?}` with 400/401/404/409/429. Per-IP rate limit: 20 re
 
 ## Data (SQLite)
 
-- `players(address PK, name, seeds, season_seeds, season, energy, energy_at, last_seen_at, created_at, inviter,
-  holder_bonus, holder_equivalents, holder_checked_at, streak, daily_claimed_on)`
+- `players(address PK, name, name_changed_at, seeds, season_seeds, season, energy, energy_at, last_seen_at,
+  me_at, chest_cursor, created_at, inviter, invite_rank, holder_bonus, holder_equivalents, holder_checked_at, streak,
+  daily_claimed_on, referral_season_seeds)`
 - `upgrades(address, key, level, PK(address,key))`
 - `sessions(token PK, address, expires_at)`, `nonces(nonce PK, address, message, expires_at)`
-- `chests(id PK, address, block, seeds, created_at, expires_at, claimed_at)`, `blocks_seen(event_id PK)`
+- `blocks(event_id PK, block, blocks, at)`, `chests(id PK, address, block, seeds, created_at, expires_at, claimed_at)`
+- `tap_batches(token, batch_id, response, at, PK(token, batch_id))` for idempotent tap batches
 - `phase_log(at, phase, multiplier)` for exact passive integration, pruned to 14 days
 - `season_results(season, address, seeds, PK(season,address))`
 - `referral_earnings(inviter, friend, seeds, PK(inviter,friend))`
@@ -168,6 +198,10 @@ Condensed for headings, pixel art for the cage.
 - **Upgrades**: the six items with level, effect, next cost, buy button.
 - **Friends**: referral link with copy, friends list, seeds earned.
 - **Leaders**: season and all-time tables, your rank.
+- **About** (`web/about.html`, linked from the footer and the first screen): what the game is, how it reads
+  Squeekchain (the three API reads, the phase rules, the block chests), why it asks for a wallet signature and what it
+  never does (no transactions, no token, no value), the holder bonus, and that it is a community build, not
+  affiliated with Squeekchain. This is the text the Code Lane board and reviewers read.
 - **Sign-in**: "Connect wallet" (EIP-1193 `eth_requestAccounts`, then `personal_sign`), no chain switch. Before
   sign-in the cage is visible and the live wheel turns, taps show "Connect to play".
 - Taps are batched every 2 s (or on tab hide) and reconciled with the server's response; the client predicts seeds
@@ -191,7 +225,10 @@ six item icons into `web/img/*.png` (pixelated, 4× scale in CSS). Own drawings,
   creation on a block event once per event id, expiry, claim; daily streak rules; season roll-over and archive; the
   holder bonus from a recorded `/v1/accounts` answer (Level 2 = 2.2); nonce and signature flow with a real
   `ethers.Wallet`; the poller's phase machine from recorded `/v1/status` answers; the API handlers end to end against an
-  in-memory database with `fetch` stubbed.
+  in-memory database with `fetch` stubbed. Also: the pantry payback bounds and the 150,000 cost ceiling; clock skew,
+  one batch per second, the stale-session rule and idempotent batch ids; the phase log's downtime row; lazy chests
+  (created on the next request, only for players active before the block, cap of 10, claim all); the referral cap
+  (10 friends, 20,000 per season); the name cooldown; nonce cleanup.
 - Site: a browser check with a stub wallet (window.ethereum that signs with a test key) against the real local server:
   connect, tap, buy an upgrade, claim a chest, leaderboard; no console errors; 390 px and 1280 px screenshots.
 
