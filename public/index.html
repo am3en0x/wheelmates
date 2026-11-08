@@ -20,14 +20,14 @@
     <button class="btn small" id="connect">Connect<span class="wide">&nbsp;wallet</span></button>
   </header>
 
-  <main>
+  <main class="game">
     <section class="tab on" id="tab-cage">
       <div class="score">
         <div class="seeds num" id="seedsBox"><img class="px" src="img/seed.png" alt=""><span id="seeds">0</span></div>
         <div class="week" id="week">Connect your wallet to start</div>
       </div>
       <div class="cage-wrap">
-        <canvas id="cage" width="360" height="360" aria-label="Squeektoshi's cage. Tap to push the wheel."></canvas>
+        <canvas id="cage" width="360" height="360" tabindex="0" role="button" aria-label="Squeektoshi's cage. Tap, or press Enter, to push the wheel."></canvas>
         <span class="banner" id="banner" hidden></span>
         <button class="chest-btn" id="chestBtn" hidden><img class="px" src="img/chest.png" alt=""><span id="chestText"></span></button>
       </div>

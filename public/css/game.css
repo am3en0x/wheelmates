@@ -59,6 +59,7 @@ main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: 10px 12p
 .cage-wrap { position: relative; border-radius: 14px; overflow: hidden; border: 2px solid var(--line-strong); background: #1c1a22; touch-action: manipulation; user-select: none; transition: transform 0.08s; }
 .cage-wrap:active { transform: scale(0.985); }
 #cage { display: block; width: 100%; height: auto; cursor: pointer; }
+#cage:focus-visible { outline: 3px solid var(--seed); outline-offset: -3px; }
 .banner { position: absolute; left: 10px; top: 10px; padding: 6px 10px; border-radius: 6px; background: rgb(11 10 14 / 0.78); font: 500 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--run); pointer-events: none; }
 .chest-btn { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 8px; background: rgb(11 10 14 / 0.86); border: 2px solid var(--zoom); color: var(--ink); font: 500 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
 .chest-btn img { width: 28px; height: 22px; }
@@ -118,9 +119,9 @@ tr.me td { color: var(--seed); }
 .doc p, .doc li { font-size: 14px; }
 .doc .fine { font-size: 12px; color: var(--muted); }
 
-/* ---------------------------------------------------------------- desktop: the cage and the shop side by side */
+/* ---------------------------------------------------------------- desktop: the cage and the shop side by side (the game page only; About stays a document) */
 @media (min-width: 960px) {
-  main { max-width: 1000px; display: grid; grid-template-columns: 560px 380px; grid-template-rows: auto 1fr; gap: 16px 40px; justify-content: center; align-items: start; padding: 16px 24px 40px; }
+  main.game { max-width: 1000px; display: grid; grid-template-columns: 560px 380px; grid-template-rows: auto 1fr; gap: 16px 40px; justify-content: center; align-items: start; padding: 16px 24px 40px; }
   #tab-cage { display: block; grid-column: 1; grid-row: 1 / span 2; }
   .tabs { position: static; align-self: start; grid-column: 2; grid-row: 1; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; background: var(--panel); backdrop-filter: none; padding: 0; }
   .tabs button[data-tab="cage"] { display: none; }

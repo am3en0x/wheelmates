@@ -81,8 +81,8 @@ function render() {
   $('chestBtn').hidden = !chests.length
   cage.setChests(chests.length)
   if (chests.length) $('chestText').innerHTML = `Open ${chests.length} chest${chests.length > 1 ? 's' : ''} <b>+${fmt(chests.reduce((a, c) => a + c.seeds, 0))}</b>`
-  shownSeeds = signed ? me.seeds : 0
-  shownEnergy = signed ? me.energy : 500
+  shownSeeds = signed ? me.seeds + unsent() * gainNow() : 0
+  shownEnergy = signed ? me.energy - unsent() : 500
   energyAt = performance.now()
   $('seeds').textContent = fmt(shownSeeds)
   $('balance').textContent = fmt(shownSeeds)
@@ -138,7 +138,16 @@ async function loadLeaders(scope) {
 }
 
 // ---------------------------------------------------------------- taps
-function onTap(e) {
+// Taps are counted locally and sent in batches. A batch keeps its batchId until the server has confirmed it, so a
+// request lost to the network, a 429 or a 5xx is sent again and the server deduplicates it; only a batch the server
+// rejects for good is dropped, and then its seeds come off the screen. One batch is in flight at a time.
+const queue = [] // {count, batchId, tries}
+let inFlight = false
+function unsent() { return pending + queue.reduce((a, b) => a + b.count, 0) }
+function gainNow() { return Math.floor(me.tapPower * me.live.multiplier * (1 + me.holderBonus)) }
+function dropUnsent() { pending = 0; queue.length = 0 }
+
+function onTap(x, y) {
   if (!me) { say('Connect a wallet or play as a guest to start.'); return }
   const now = performance.now()
   const energy = Math.min(me.energyMax, shownEnergy + (me.regenPerSec * (now - energyAt)) / 1000)
@@ -146,25 +155,43 @@ function onTap(e) {
   shownEnergy = energy - 1
   energyAt = now
   const hot = me.live.multiplier > 1
-  const gain = Math.floor(me.tapPower * me.live.multiplier * (1 + me.holderBonus))
+  const gain = gainNow()
   pending += 1
   shownSeeds += gain
   $('seeds').textContent = fmt(shownSeeds)
   $('seedsBox').classList.add('bump')
   setTimeout(() => $('seedsBox').classList.remove('bump'), 120)
-  const r = $('cage').getBoundingClientRect()
-  cage.tap(((e.clientX - r.left) / r.width) * 360, ((e.clientY - r.top) / r.height) * 360, gain, hot)
+  cage.tap(x, y, gain, hot)
 }
-$('cage').addEventListener('pointerdown', (e) => { e.preventDefault(); onTap(e) })
+const cageEl = $('cage')
+cageEl.addEventListener('pointerdown', (e) => {
+  e.preventDefault()
+  const r = cageEl.getBoundingClientRect()
+  onTap(((e.clientX - r.left) / r.width) * 360, ((e.clientY - r.top) / r.height) * 360)
+})
+// the cage is a focusable button too: Enter or Space pushes the wheel, one tap per press
+cageEl.addEventListener('keydown', (e) => {
+  if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat) return
+  e.preventDefault()
+  onTap(180 + Math.random() * 60 - 30, 200 + Math.random() * 40 - 20)
+})
 
 async function flush() {
-  if (!me || pending === 0) return
-  const count = Math.min(60, pending)
-  pending -= count
+  if (!me || inFlight) return
+  if (!queue.length && pending > 0) {
+    const count = Math.min(60, pending)
+    pending -= count
+    queue.push({ count, batchId: crypto.randomUUID(), tries: 0 })
+  }
+  const batch = queue[0]
+  if (!batch) return
+  inFlight = true
   try {
-    const r = await api.call('/taps', { method: 'POST', body: { count, clientTs: Date.now(), batchId: crypto.randomUUID() } })
-    shownSeeds = r.total + pending * Math.floor(me.tapPower * me.live.multiplier * (1 + me.holderBonus))
-    shownEnergy = r.energy - pending
+    const r = await api.call('/taps', { method: 'POST', body: { count: batch.count, clientTs: Date.now(), batchId: batch.batchId } })
+    queue.shift()
+    if (batch.tries) say(queue.length ? 'Back online, catching up.' : 'Back online, your taps are saved.', 'good')
+    shownSeeds = r.total + unsent() * gainNow()
+    shownEnergy = r.energy - unsent()
     energyAt = performance.now()
     me.seeds = r.total
     me.seasonSeeds = r.seasonSeeds
@@ -174,9 +201,20 @@ async function flush() {
     $('week').innerHTML = weekLine()
     renderUpgrades()
   } catch (err) {
-    if (err.code === 'stale_session') await refresh()
-    else if (err.code === 'too_fast') pending += count
-    else if (err.status === 401) { me = null; render(); say('Session ended. Connect again.', 'bad') }
+    if (err.status === 401) { dropUnsent(); me = null; render(); say('Session ended. Connect again.', 'bad') }
+    else if (err.code === 'stale_session') await refresh() // the batch stays queued and goes out on the next tick
+    else if (err.status === 0 || err.status === 429 || err.status >= 500 || err.code === 'too_fast') {
+      batch.tries += 1
+      if (batch.tries >= 2) say(`Taps are not reaching the server (${err.status === 0 ? 'offline' : err.code}). Keeping ${unsent()} and retrying.`, 'bad')
+    } else {
+      // rejected for good (bad clock, bad count): take this batch's seeds back off the screen
+      queue.shift()
+      shownSeeds = Math.max(me.seeds, shownSeeds - batch.count * gainNow())
+      $('seeds').textContent = fmt(shownSeeds)
+      say(err.code === 'clock_skew' ? 'Your device clock is off by more than 5 seconds, so these taps could not be saved.' : 'Taps rejected: ' + (err.code || err.status), 'bad')
+    }
+  } finally {
+    inFlight = false
   }
 }
 setInterval(flush, 2000)
@@ -212,7 +250,7 @@ $('guest').onclick = async () => {
     say('Could not start: ' + (e.code || e.message || e), 'bad')
   }
 }
-$('signout').onclick = async () => { await disconnect(); me = null; render() }
+$('signout').onclick = async () => { await flush(); dropUnsent(); await disconnect(); me = null; render() }
 $('daily').onclick = async () => { try { me = await api.call('/daily', { method: 'POST' }); render(); say(`Daily bonus taken. Streak ${me.streak}.`, 'good') } catch { say('Already taken today.', 'bad') } }
 $('chestBtn').onclick = async () => { try { me = await api.call('/chest/claim', { method: 'POST', body: { all: true } }); render(); say('Chests opened.', 'good') } catch { await refresh() } }
 $('upgrades').addEventListener('click', async (e) => {
