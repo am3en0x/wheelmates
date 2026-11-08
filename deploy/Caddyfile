@@ -1,3 +1,17 @@
+# The site at the root, the API under api. Caddy gets and renews the certificates itself.
+SITE_HOST {
+	encode zstd gzip
+	root * /opt/wheelmates/web
+	file_server
+	header Cache-Control "no-cache"
+	header /img/* Cache-Control "public, max-age=86400"
+	header /fonts/* Cache-Control "public, max-age=2592000"
+}
+
+www.SITE_HOST {
+	redir https://SITE_HOST{uri} permanent
+}
+
 api.SITE_HOST {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:8790
