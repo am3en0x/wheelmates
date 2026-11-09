@@ -63,19 +63,21 @@ for k in range(3):
 ld.ellipse([CX - 54, CY - 54, CX + 54, CY + 54], fill=RIM_LT)
 ld.ellipse([CX - 28, CY - 28, CX + 28, CY + 28], fill=HUB)
 
-# Squeektoshi running at the bottom of the drum, facing right: tail, body, belly, head, ear, eye, nose, legs
-ld.line([300, 1010, 240, 930], fill=FUR_DK, width=26)
-shaded((300, 880, 880, 1150), FUR_LT, FUR_DK, 0.35, 0.3)       # body
-shaded((360, 1010, 820, 1150), BELLY, BELLY_DK, 0.4, 0.3)      # belly
-shaded((780, 790, 1060, 1070), FUR_LT, FUR_DK, 0.4, 0.3)       # head
-shaded((820, 740, 920, 850), FUR_LT, FUR_DK)                   # ear
-shaded((840, 770, 900, 830), BELLY, BELLY_DK)                  # inner ear
-ld.ellipse([960, 870, 1020, 940], fill=INK)                    # eye
-ld.ellipse([975, 882, 995, 902], fill=WHITE)
-ld.ellipse([1035, 940, 1070, 975], fill=NOSE)                  # nose
-shaded((900, 940, 1040, 1050), BELLY, BELLY_DK, 0.45, 0.3)     # cheek
-for (x0, x1) in ((390, 470), (520, 600), (660, 740)):          # legs mid-stride
-    ld.rounded_rectangle([x0, 1110, x1, 1180], radius=30, fill=FUR_DK)
+# Squeektoshi running at the bottom of the drum, facing right, big enough to read on the board
+FUR_HI = (255, 228, 176)
+ld.line([250, 980, 170, 880], fill=FUR_DK, width=30)                 # tail
+shaded((250, 820, 920, 1160), FUR_HI, FUR_DK, 0.35, 0.3)            # body
+shaded((320, 980, 860, 1160), BELLY, BELLY_DK, 0.4, 0.3)            # belly
+shaded((800, 700, 1140, 1040), FUR_HI, FUR_DK, 0.4, 0.3)            # head
+shaded((840, 640, 970, 780), FUR_HI, FUR_DK)                        # ear
+shaded((868, 672, 942, 752), BELLY, BELLY_DK)                       # inner ear
+ld.ellipse([990, 790, 1070, 880], fill=INK)                         # eye
+ld.ellipse([1008, 805, 1036, 833], fill=WHITE)
+ld.ellipse([1110, 880, 1150, 920], fill=NOSE)                       # nose
+shaded((930, 880, 1100, 1010), BELLY, BELLY_DK, 0.45, 0.3)          # cheek
+ld.ellipse([1040, 930, 1100, 990], fill=(255, 180, 160, 150))       # blush
+for (x0, x1) in ((330, 420), (480, 570), (640, 730)):               # legs mid-stride
+    ld.rounded_rectangle([x0, 1120, x1, 1195], radius=34, fill=FUR_DK)
 im.paste(lay, (0, 0), lay)
 
 # seeds flying off the top of the wheel
@@ -96,8 +98,28 @@ f1, f2 = font(425), font(425)
 def fit(text, f, x0, x1):
     w = d.textlength(text, font=f)
     return x0 + (x1 - x0 - w) / 2
-d.text((fit("WHEEL", f1, 1320, 2530), 350), "WHEEL", font=f1, fill=CREAM)
-d.text((fit("MATES", f2, 1320, 2530), 760), "MATES", font=f2, fill=AMBER)
+d.text((fit("WHEEL", f1, 1320, 2530), 250), "WHEEL", font=f1, fill=CREAM)
+d.text((fit("MATES", f2, 1320, 2530), 650), "MATES", font=f2, fill=AMBER)
+
+# the mates: three small faces cheering under the wordmark
+mates = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+md = ImageDraw.Draw(mates)
+def face(x, y, r, tone=(FUR_HI, FUR_DK)):
+    def sh(box, inner, outer, cx=0.4, cy=0.35):
+        x0, y0, x1, y1 = box
+        mates.alpha_composite(radial((x1 - x0, y1 - y0), inner, outer, cx, cy), (x0, y0))
+    sh((x - r, y - r, x + r, y + r), *tone)
+    for ex in (x - r * 0.72, x + r * 0.72):                           # ears
+        sh((int(ex - r * 0.36), int(y - r * 1.15), int(ex + r * 0.36), int(y - r * 0.45)), *tone)
+    for ex in (x - r * 0.42, x + r * 0.42):                           # eyes
+        md.ellipse([ex - r * 0.17, y - r * 0.3, ex + r * 0.17, y + 0.02 * r], fill=INK)
+        md.ellipse([ex - r * 0.1, y - r * 0.25, ex - r * 0.01, y - r * 0.15], fill=WHITE)
+    for ex in (x - r * 0.5, x + r * 0.5):                             # cheeks
+        sh((int(ex - r * 0.4), int(y + r * 0.05), int(ex + r * 0.4), int(y + r * 0.75)), BELLY, BELLY_DK)
+    md.ellipse([x - r * 0.1, y + r * 0.15, x + r * 0.1, y + r * 0.33], fill=NOSE)
+for (x, y) in ((1560, 1275), (1920, 1275), (2280, 1275)):
+    face(x, y, 128)
+im.paste(mates, (0, 0), mates)
 
 final = im.resize((1280, 720), Image.LANCZOS)
 final.save(out / "card-headline.png")
